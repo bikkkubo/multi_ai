@@ -7,6 +7,7 @@ ChatGPTとClaudeを並列で呼び出し、相互レビューと自己修正を�
 import os
 import sys
 import json
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -59,7 +60,7 @@ class AutoGenOrchestrator:
             llm_config={"config_list": [self.config_list[0]]},
             system_message="""あなたはPythonエキスパートです。PEP 8とPEP 484に従ってコードを生成してください。
 生成するコードには必ず以下の関数を含めてください：
-def run_task(n: int) -> List[int]:
+def run_task(n: int) -> list[int]:
     \"\"\"タスクを実行する関数
     
     Args:
@@ -77,7 +78,7 @@ def run_task(n: int) -> List[int]:
             llm_config={"config_list": [self.config_list[1]]},
             system_message="""あなたはPythonエキスパートです。PEP 8とPEP 484に従ってコードを生成してください。
 生成するコードには必ず以下の関数を含めてください：
-def run_task(n: int) -> List[int]:
+def run_task(n: int) -> list[int]:
     \"\"\"タスクを実行する関数
     
     Args:
@@ -237,13 +238,24 @@ def run_task(n: int) -> List[int]:
         
         # 結果の保存
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_file = self.output_dir / f"output_{timestamp}.py"
-        output_file.write_text(final_code)
+        
+        # 一時ファイルに保存
+        temp_file = Path("workspace/temp.py")
+        temp_file.write_text(final_code)
+        
+        # 検証
+        check_log = self.run_checks(final_code)
+        if check_log:
+            raise ValueError(f"Final code validation failed:\n{check_log}")
+        
+        # 最終ファイルをコピー
+        final_file = self.output_dir / f"{timestamp}_final.py"
+        shutil.copy2(temp_file, final_file)
         
         # サマリーの保存
         summary = {
-            "files": [str(output_file)],
-            "status": "green" if not self.run_checks(final_code) else "red"
+            "files": [str(final_file)],
+            "status": "green"
         }
         summary_file = self.output_dir / f"summary_{timestamp}.json"
         summary_file.write_text(json.dumps(summary, indent=2))

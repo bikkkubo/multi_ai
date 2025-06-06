@@ -1,0 +1,35 @@
+[project]
+name = "multiai"
+version = "0.1.0"
+description = "AutoGen + pytest + ruff + mypy 二頭脳コードジェネレータ"
+requires-python = ">=3.13"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+select = ["E", "F", "B", "I"]
+ignore = []
+
+[tool.ruff.isort]
+known-first-party = ["multiai"]
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+plugins = []
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q --cov=." 

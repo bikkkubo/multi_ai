@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # エラーが発生したら即座に終了
 set -euo pipefail
@@ -8,13 +8,13 @@ if [ -d "venv" ]; then
     source venv/bin/activate
 fi
 
-# テストの実行
-echo "Running tests..."
-pytest -q
+# テストの実行（カバレッジ付き）
+echo "Running tests with coverage..."
+pytest -q --cov=.
 
 # リントの実行
 echo "Running linter..."
-ruff .
+ruff check .
 
 # 型チェックの実行
 echo "Running type checker..."
