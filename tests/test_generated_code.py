@@ -40,18 +40,18 @@ def test_generated_code():
     module = load_generated_module()
     
     # 公開APIの存在確認
-    assert hasattr(module, "make_table"), "Generated code missing make_table function"
+    assert hasattr(module, "run_task"), "Generated code missing run_task function"
     
     # 関数の実行と結果の確認
-    result = module.make_table(5)
+    result = module.run_task(5)
     expected = [1, 4, 9, 16, 25]
     
     assert result == expected, f"Expected {expected}, but got {result}"
     
     # エッジケースのテスト
-    assert module.make_table(0) == [], "Empty table should return empty list"
-    assert module.make_table(1) == [1], "Single item table should return [1]"
+    assert module.run_task(0) == [], "Empty table should return empty list"
+    assert module.run_task(1) == [1], "Single item table should return [1]"
     
     # 負の値のテスト
     with pytest.raises(ValueError):
-        module.make_table(-1) 
+        module.run_task(-1) 

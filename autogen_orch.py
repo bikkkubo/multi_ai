@@ -57,13 +57,37 @@ class AutoGenOrchestrator:
         self.chatgpt = autogen.AssistantAgent(
             name="ChatGPT",
             llm_config={"config_list": [self.config_list[0]]},
-            system_message="あなたはPythonエキスパートです。PEP 8とPEP 484に従ってコードを生成してください。"
+            system_message="""あなたはPythonエキスパートです。PEP 8とPEP 484に従ってコードを生成してください。
+生成するコードには必ず以下の関数を含めてください：
+def run_task(n: int) -> List[int]:
+    \"\"\"タスクを実行する関数
+    
+    Args:
+        n: 入力値
+        
+    Returns:
+        実行結果のリスト
+    \"\"\"
+    # 実装
+"""
         )
         
         self.claude = autogen.AssistantAgent(
             name="Claude",
             llm_config={"config_list": [self.config_list[1]]},
-            system_message="あなたはPythonエキスパートです。PEP 8とPEP 484に従ってコードを生成してください。"
+            system_message="""あなたはPythonエキスパートです。PEP 8とPEP 484に従ってコードを生成してください。
+生成するコードには必ず以下の関数を含めてください：
+def run_task(n: int) -> List[int]:
+    \"\"\"タスクを実行する関数
+    
+    Args:
+        n: 入力値
+        
+    Returns:
+        実行結果のリスト
+    \"\"\"
+    # 実装
+"""
         )
         
         self.arbitrator = autogen.AssistantAgent(
@@ -82,42 +106,50 @@ class AutoGenOrchestrator:
             system_message="タスクの実行と結果の確認を行います。"
         )
 
-    def run_checks(self, code: str) -> Tuple[bool, bool, bool]:
+    def run_checks(self, code: str) -> str:
         """コードの検証を実行
         
         Args:
             code: 検証するコード
             
         Returns:
-            (テスト結果, リント結果, 型チェック結果)のタプル
+            失敗ログ（成功時は空文字列）
         """
         # 一時ファイルにコードを保存
         temp_file = Path("workspace/temp.py")
         temp_file.parent.mkdir(exist_ok=True)
         temp_file.write_text(code)
         
+        logs = []
+        
         # テストの実行
         test_result = subprocess.run(
             ["pytest", "-q", str(temp_file)],
             capture_output=True,
             text=True
-        ).returncode == 0
+        )
+        if test_result.returncode != 0:
+            logs.append(f"=== Test Failures ===\n{test_result.stdout}\n{test_result.stderr}")
         
         # リントの実行
         lint_result = subprocess.run(
             ["ruff", "check", str(temp_file)],
             capture_output=True,
             text=True
-        ).returncode == 0
+        )
+        if lint_result.returncode != 0:
+            logs.append(f"=== Lint Errors ===\n{lint_result.stdout}\n{lint_result.stderr}")
         
         # 型チェックの実行
         type_check_result = subprocess.run(
             ["mypy", "--strict", str(temp_file)],
             capture_output=True,
             text=True
-        ).returncode == 0
+        )
+        if type_check_result.returncode != 0:
+            logs.append(f"=== Type Check Errors ===\n{type_check_result.stdout}\n{type_check_result.stderr}")
         
-        return test_result, lint_result, type_check_result
+        return "\n\n".join(logs) if logs else ""
 
     def generate_code(self, task: str) -> str:
         """コード生成を実行
@@ -172,13 +204,28 @@ class AutoGenOrchestrator:
             )
             claude_code = self.user_proxy.last_message()["content"]
             
-            # 検証
-            chatgpt_checks = self.run_checks(chatgpt_code)
-            claude_checks = self.run_checks(claude_code)
+            # 検証とフィードバック
+            chatgpt_log = self.run_checks(chatgpt_code)
+            claude_log = self.run_checks(claude_code)
             
             # 両方のコードが合格したら終了
-            if all(chatgpt_checks) and all(claude_checks):
+            if not chatgpt_log and not claude_log:
                 break
+            
+            # 失敗ログをフィードバック
+            if chatgpt_log:
+                self.user_proxy.initiate_chat(
+                    self.chatgpt,
+                    message=f"[CHECK_FAIL]\n{chatgpt_log}\n\n上記のエラーを修正してください。"
+                )
+                chatgpt_code = self.user_proxy.last_message()["content"]
+            
+            if claude_log:
+                self.user_proxy.initiate_chat(
+                    self.claude,
+                    message=f"[CHECK_FAIL]\n{claude_log}\n\n上記のエラーを修正してください。"
+                )
+                claude_code = self.user_proxy.last_message()["content"]
         
         # 最終的なコードの選択
         self.user_proxy.initiate_chat(
@@ -196,7 +243,7 @@ class AutoGenOrchestrator:
         # サマリーの保存
         summary = {
             "files": [str(output_file)],
-            "status": "green" if all(self.run_checks(final_code)) else "red"
+            "status": "green" if not self.run_checks(final_code) else "red"
         }
         summary_file = self.output_dir / f"summary_{timestamp}.json"
         summary_file.write_text(json.dumps(summary, indent=2))

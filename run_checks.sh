@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # エラーが発生したら即座に終了
-set -e
+set -euo pipefail
 
 # 仮想環境の有効化（存在する場合）
 if [ -d "venv" ]; then
