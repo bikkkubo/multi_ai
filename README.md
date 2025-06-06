@@ -50,3 +50,12 @@ python autogen_orch.py "2乗のテーブルを出力せよ"
 ## ライセンス
 
 MIT License 
+
+## CI debug tips
+
+- GitHub Actions が動かない場合は以下を確認してください:
+  1. `.github/workflows/ci.yml` の `name:` と `on:` がファイルの先頭（トップレベル）にあるか。
+  2. `Settings > Actions` で "Allow all actions and reusable workflows" などワークフローが有効になっているか。
+  3. push/PR先ブランチ名が `main` であるか。
+  4. YAMLインデントや拡張子ミスがないか。
+- 変更後は必ず `git push origin main` でリモートに反映してください。 
